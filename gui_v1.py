@@ -340,7 +340,7 @@ if __name__ == "__main__":
                                     enable_events=True,
                                 ),
                             ],
-                                                        [
+                            [
                                 sg.Text(i18n("共振偏移")),
                                 sg.Slider(
                                     range=(-5, 5),
