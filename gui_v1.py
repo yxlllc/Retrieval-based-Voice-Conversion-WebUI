@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import shutil
 
 load_dotenv()
-load_dotenv("sha256.env")
 
 os.environ["OMP_NUM_THREADS"] = "4"
 if sys.platform == "darwin":
@@ -114,6 +113,7 @@ if __name__ == "__main__":
             self.pth_path: str = ""
             self.index_path: str = ""
             self.pitch: int = 0
+            self.formant: float = 0.0
             self.sr_type: str = "sr_model"
             self.block_time: float = 0.25  # s
             self.threhold: int = -60
@@ -143,23 +143,8 @@ if __name__ == "__main__":
             self.input_devices_indices = None
             self.output_devices_indices = None
             self.stream = None
-            if not self.config.nocheck:
-                self.check_assets()
             self.update_devices()
             self.launcher()
-
-        def check_assets(self):
-            global now_dir
-            from infer.lib.rvcmd import check_all_assets, download_all_assets
-
-            tmp = os.path.join(now_dir, "TEMP")
-            shutil.rmtree(tmp, ignore_errors=True)
-            os.makedirs(tmp, exist_ok=True)
-            if not check_all_assets():
-                download_all_assets(tmpdir=tmp)
-                if not check_all_assets():
-                    printt("counld not satisfy all assets needed.")
-                    exit(1)
 
         def load(self):
             try:
@@ -212,6 +197,7 @@ if __name__ == "__main__":
                         "sr_type": "sr_model",
                         "threhold": -60,
                         "pitch": 0,
+                        "formant": 0.0,
                         "index_rate": 0,
                         "rms_mix_rate": 0,
                         "block_time": 0.25,
@@ -351,6 +337,17 @@ if __name__ == "__main__":
                                     resolution=1,
                                     orientation="h",
                                     default_value=data.get("pitch", 0),
+                                    enable_events=True,
+                                ),
+                            ],
+                                                        [
+                                sg.Text(i18n("共振偏移")),
+                                sg.Slider(
+                                    range=(-5, 5),
+                                    key="formant",
+                                    resolution=0.01,
+                                    orientation="h",
+                                    default_value=data.get("formant", 0.0),
                                     enable_events=True,
                                 ),
                             ],
@@ -579,6 +576,7 @@ if __name__ == "__main__":
                             ],
                             "threhold": values["threhold"],
                             "pitch": values["pitch"],
+                            "formant": values["formant"],
                             "rms_mix_rate": values["rms_mix_rate"],
                             "index_rate": values["index_rate"],
                             # "device_latency": values["device_latency"],
@@ -621,6 +619,10 @@ if __name__ == "__main__":
                     self.gui_config.pitch = values["pitch"]
                     if hasattr(self, "rvc"):
                         self.rvc.change_key(values["pitch"])
+                elif event == "formant":
+                    self.gui_config.formant = values["formant"]
+                    if hasattr(self, "rvc"):
+                        self.rvc.change_formant(values["formant"])
                 elif event == "index_rate":
                     self.gui_config.index_rate = values["index_rate"]
                     if hasattr(self, "rvc"):
@@ -679,6 +681,7 @@ if __name__ == "__main__":
             ]
             self.gui_config.threhold = values["threhold"]
             self.gui_config.pitch = values["pitch"]
+            self.gui_config.formant = values["formant"]
             self.gui_config.block_time = values["block_time"]
             self.gui_config.crossfade_time = values["crossfade_length"]
             self.gui_config.extra_time = values["extra_time"]
@@ -703,6 +706,7 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
             self.rvc = rtrvc.RVC(
                 self.gui_config.pitch,
+                self.gui_config.formant,
                 self.gui_config.pth_path,
                 self.gui_config.index_path,
                 self.gui_config.index_rate,
